@@ -1,0 +1,310 @@
+name: mpls-l3vpn-extranet
+prefix: clab
+
+# =============================================================================
+# 100% Nokia SR Linux Redundant MPLS L3VPN Topology (Matching User Template)
+# - Tier 1 Core (2 nodes):          core1, core2          (Nokia 7250 IXR-6e)
+# - Tier 2 Provider Edge (4 nodes): pe-a, pe-a1, pe-b, pe-b1 (Nokia 7250 IXR-6e)
+# - Tier 3 Customer Edge (4 nodes): ce-a, ce-a1, ce-b, ce-b1 (Nokia 7220 IXR-D2L)
+# - Tier 4 Access Switch (4 nodes): as, as1, bs, bs1      (Nokia 7220 IXR-D2L)
+# - Tier 5 Dual-Homed Hosts (4):    host-as, host-as1, host-bs, host-bs1 (Linux)
+# =============================================================================
+
+mgmt:
+  network: clab-mpls-mgmt
+  ipv4-subnet: 172.20.20.0/24
+
+topology:
+  kinds:
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux:24.10.1
+      # Note: 7220 IXR (ixr-d2l) runs 100% license-free.
+      # 7250 IXR (ixr-6e) used for MPLS Core/PEs accepts an optional license key if needed:
+      # license: ./license-srlinux.key
+    linux:
+      image: quay.io/frrouting/frr:10.0.1
+
+  nodes:
+    # =========================================================================
+    # TIER 1: CORE: 1 AND 2 (Nokia SR Linux 7250 IXR-6e - SR-MPLS + BFD + ECMP)
+    # =========================================================================
+    core1:
+      kind: nokia_srlinux
+      type: ixr-6e
+      mgmt-ipv4: 172.20.20.11
+      startup-config: configs/srl/core1.cfg
+      labels:
+        tier: core
+        role: Core-1
+        loopback: "10.0.0.11/32"
+        srid: "16011"
+
+    core2:
+      kind: nokia_srlinux
+      type: ixr-6e
+      mgmt-ipv4: 172.20.20.12
+      startup-config: configs/srl/core2.cfg
+      labels:
+        tier: core
+        role: Core-2
+        loopback: "10.0.0.12/32"
+        srid: "16012"
+
+    # =========================================================================
+    # TIER 2: PROVIDER EDGE A, A1, B, B1 (Nokia SR Linux 7250 IXR-6e)
+    # Full 2x4 Mesh to Core 1/2 + Full 4x4 Mesh to Customer Edge A, A1, B, B1
+    # =========================================================================
+    pe-a:
+      kind: nokia_srlinux
+      type: ixr-6e
+      mgmt-ipv4: 172.20.20.21
+      startup-config: configs/srl/pe-a.cfg
+      labels:
+        tier: pe
+        role: Provider-Edge-A
+        loopback: "10.0.0.1/32"
+        srid: "16001"
+        vrfs: "vrf-a(10.0.0.1:101),vrf-b(10.0.0.1:102)"
+
+    pe-a1:
+      kind: nokia_srlinux
+      type: ixr-6e
+      mgmt-ipv4: 172.20.20.22
+      startup-config: configs/srl/pe-a1.cfg
+      labels:
+        tier: pe
+        role: Provider-Edge-A1
+        loopback: "10.0.0.2/32"
+        srid: "16002"
+        vrfs: "vrf-a(10.0.0.2:101),vrf-b(10.0.0.2:102)"
+
+    pe-b:
+      kind: nokia_srlinux
+      type: ixr-6e
+      mgmt-ipv4: 172.20.20.23
+      startup-config: configs/srl/pe-b.cfg
+      labels:
+        tier: pe
+        role: Provider-Edge-B
+        loopback: "10.0.0.3/32"
+        srid: "16003"
+        vrfs: "vrf-a(10.0.0.3:101),vrf-b(10.0.0.3:102)"
+
+    pe-b1:
+      kind: nokia_srlinux
+      type: ixr-6e
+      mgmt-ipv4: 172.20.20.24
+      startup-config: configs/srl/pe-b1.cfg
+      labels:
+        tier: pe
+        role: Provider-Edge-B1
+        loopback: "10.0.0.4/32"
+        srid: "16004"
+        vrfs: "vrf-a(10.0.0.4:101),vrf-b(10.0.0.4:102)"
+
+    # =========================================================================
+    # TIER 3: CUSTOMER EDGE A, A1, B, B1 (Nokia SR Linux 7220 IXR-D2L)
+    # Full 4x4 Mesh to PEs + Dual 2x2 Bowtie Meshes to Access Switches + VRRPv3
+    # =========================================================================
+    ce-a:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.31
+      startup-config: configs/srl/ce-a.cfg
+      labels:
+        tier: ce
+        vrf: vrf-a
+        asn: "65101"
+        role: Customer-Edge-A
+
+    ce-a1:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.32
+      startup-config: configs/srl/ce-a1.cfg
+      labels:
+        tier: ce
+        vrf: vrf-a
+        asn: "65101"
+        role: Customer-Edge-A1
+
+    ce-b:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.33
+      startup-config: configs/srl/ce-b.cfg
+      labels:
+        tier: ce
+        vrf: vrf-b
+        asn: "65102"
+        role: Customer-Edge-B
+
+    ce-b1:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.34
+      startup-config: configs/srl/ce-b1.cfg
+      labels:
+        tier: ce
+        vrf: vrf-b
+        asn: "65102"
+        role: Customer-Edge-B1
+
+    # =========================================================================
+    # TIER 4: ACCESS SWITCHES AS, AS1, BS, BS1 (Nokia SR Linux 7220 IXR-D2L)
+    # Native MAC-VRF L2 Bridging with Dual 2x2 Bowtie Trunks to CEs
+    # =========================================================================
+    as:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.41
+      startup-config: configs/srl/as.cfg
+      labels:
+        tier: access-sw
+        vrf: vrf-a
+        vlans: "10,100"
+
+    as1:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.42
+      startup-config: configs/srl/as1.cfg
+      labels:
+        tier: access-sw
+        vrf: vrf-a
+        vlans: "11,101"
+
+    bs:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.43
+      startup-config: configs/srl/bs.cfg
+      labels:
+        tier: access-sw
+        vrf: vrf-b
+        vlans: "20,100"
+
+    bs1:
+      kind: nokia_srlinux
+      type: ixr-d2l
+      mgmt-ipv4: 172.20.20.44
+      startup-config: configs/srl/bs1.cfg
+      labels:
+        tier: access-sw
+        vrf: vrf-b
+        vlans: "21,101"
+
+    # =========================================================================
+    # TIER 5: DUAL-HOMED TEST HOSTS BELOW AS/AS1 & BS/BS1
+    # =========================================================================
+    host-as:
+      kind: linux
+      mgmt-ipv4: 172.20.20.51
+      binds:
+        - scripts/nodes/host-as-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+
+    host-as1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.52
+      binds:
+        - scripts/nodes/host-as1-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+
+    host-bs:
+      kind: linux
+      mgmt-ipv4: 172.20.20.53
+      binds:
+        - scripts/nodes/host-bs-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+
+    host-bs1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.54
+      binds:
+        - scripts/nodes/host-bs1-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+
+  links:
+    # -------------------------------------------------------------------------
+    # Row 1: Core 1 <-> Core 2 Inter-Core Link
+    # -------------------------------------------------------------------------
+    - endpoints: ["core1:e1-1", "core2:e1-1"]   # 10.0.12.0/30
+
+    # -------------------------------------------------------------------------
+    # Row 1 <-> Row 2: Full 2x4 Mesh between Core (1, 2) and PEs (A, A1, B, B1)
+    # -------------------------------------------------------------------------
+    - endpoints: ["core1:e1-2", "pe-a:e1-1"]    # 10.0.1.0/30
+    - endpoints: ["core1:e1-3", "pe-a1:e1-1"]   # 10.0.2.0/30
+    - endpoints: ["core1:e1-4", "pe-b:e1-1"]    # 10.0.3.0/30
+    - endpoints: ["core1:e1-5", "pe-b1:e1-1"]   # 10.0.4.0/30
+
+    - endpoints: ["core2:e1-2", "pe-a:e1-2"]    # 10.0.5.0/30
+    - endpoints: ["core2:e1-3", "pe-a1:e1-2"]   # 10.0.6.0/30
+    - endpoints: ["core2:e1-4", "pe-b:e1-2"]    # 10.0.7.0/30
+    - endpoints: ["core2:e1-5", "pe-b1:e1-2"]   # 10.0.8.0/30
+
+    # -------------------------------------------------------------------------
+    # Row 2 <-> Row 3: Full 4x4 Bipartite Mesh between PEs (A, A1, B, B1) & CEs (A, A1, B, B1)
+    # -------------------------------------------------------------------------
+    # From PE-A to all 4 CEs
+    - endpoints: ["pe-a:e1-3", "ce-a:e1-1"]     # 10.101.1.0/30 (VRF-A Primary)
+    - endpoints: ["pe-a:e1-4", "ce-a1:e1-1"]    # 10.101.2.0/30 (VRF-A Primary)
+    - endpoints: ["pe-a:e1-5", "ce-b:e1-1"]     # 10.102.1.0/30 (VRF-B Cross-Mesh Backup)
+    - endpoints: ["pe-a:e1-6", "ce-b1:e1-1"]    # 10.102.2.0/30 (VRF-B Cross-Mesh Backup)
+
+    # From PE-A1 to all 4 CEs
+    - endpoints: ["pe-a1:e1-3", "ce-a:e1-2"]    # 10.101.3.0/30 (VRF-A Primary)
+    - endpoints: ["pe-a1:e1-4", "ce-a1:e1-2"]   # 10.101.4.0/30 (VRF-A Primary)
+    - endpoints: ["pe-a1:e1-5", "ce-b:e1-2"]    # 10.102.3.0/30 (VRF-B Cross-Mesh Backup)
+    - endpoints: ["pe-a1:e1-6", "ce-b1:e1-2"]   # 10.102.4.0/30 (VRF-B Cross-Mesh Backup)
+
+    # From PE-B to all 4 CEs
+    - endpoints: ["pe-b:e1-3", "ce-a:e1-3"]     # 10.101.5.0/30 (VRF-A Cross-Mesh Backup)
+    - endpoints: ["pe-b:e1-4", "ce-a1:e1-3"]    # 10.101.6.0/30 (VRF-A Cross-Mesh Backup)
+    - endpoints: ["pe-b:e1-5", "ce-b:e1-3"]     # 10.102.5.0/30 (VRF-B Primary)
+    - endpoints: ["pe-b:e1-6", "ce-b1:e1-3"]    # 10.102.6.0/30 (VRF-B Primary)
+
+    # From PE-B1 to all 4 CEs
+    - endpoints: ["pe-b1:e1-3", "ce-a:e1-4"]    # 10.101.7.0/30 (VRF-A Cross-Mesh Backup)
+    - endpoints: ["pe-b1:e1-4", "ce-a1:e1-4"]   # 10.101.8.0/30 (VRF-A Cross-Mesh Backup)
+    - endpoints: ["pe-b1:e1-5", "ce-b:e1-4"]    # 10.102.7.0/30 (VRF-B Primary)
+    - endpoints: ["pe-b1:e1-6", "ce-b1:e1-4"]   # 10.102.8.0/30 (VRF-B Primary)
+
+    # -------------------------------------------------------------------------
+    # Row 3 <-> Row 4: Dual 2x2 Bowtie Meshes between CEs & Access Switches (AS, AS1, BS, BS1)
+    # -------------------------------------------------------------------------
+    # Stack A Bowtie: (ce-a, ce-a1) <-> (as, as1)
+    - endpoints: ["ce-a:e1-5", "as:e1-1"]       # 802.1Q Trunk (VLANs 10, 100)
+    - endpoints: ["ce-a:e1-6", "as1:e1-1"]      # 802.1Q Trunk (VLANs 11, 101)
+    - endpoints: ["ce-a1:e1-5", "as:e1-2"]      # 802.1Q Trunk (VLANs 10, 100)
+    - endpoints: ["ce-a1:e1-6", "as1:e1-2"]     # 802.1Q Trunk (VLANs 11, 101)
+
+    # Stack B Bowtie: (ce-b, ce-b1) <-> (bs, bs1)
+    - endpoints: ["ce-b:e1-5", "bs:e1-1"]       # 802.1Q Trunk (VLANs 20, 100)
+    - endpoints: ["ce-b:e1-6", "bs1:e1-1"]      # 802.1Q Trunk (VLANs 21, 101)
+    - endpoints: ["ce-b1:e1-5", "bs:e1-2"]      # 802.1Q Trunk (VLANs 20, 100)
+    - endpoints: ["ce-b1:e1-6", "bs1:e1-2"]     # 802.1Q Trunk (VLANs 21, 101)
+
+    # -------------------------------------------------------------------------
+    # Row 4 <-> Row 5: Dual-Homed Test Hosts attached to (AS, AS1) and (BS, BS1)
+    # -------------------------------------------------------------------------
+    - endpoints: ["as:e1-3", "host-as:eth1"]    # host-as Primary Corp (VLAN 10)
+    - endpoints: ["as1:e1-4", "host-as:eth2"]   # host-as Backup Corp  (VLAN 11)
+    - endpoints: ["as:e1-5", "host-as:eth3"]    # host-as Overlap      (VLAN 100)
+
+    - endpoints: ["as1:e1-3", "host-as1:eth1"]  # host-as1 Primary Corp (VLAN 11)
+    - endpoints: ["as:e1-4", "host-as1:eth2"]   # host-as1 Backup Corp  (VLAN 10)
+    - endpoints: ["as1:e1-5", "host-as1:eth3"]  # host-as1 Overlap      (VLAN 101)
+
+    - endpoints: ["bs:e1-3", "host-bs:eth1"]    # host-bs Primary Corp (VLAN 20)
+    - endpoints: ["bs1:e1-4", "host-bs:eth2"]   # host-bs Backup Corp  (VLAN 21)
+    - endpoints: ["bs:e1-5", "host-bs:eth3"]    # host-bs Overlap      (VLAN 100)
+
+    - endpoints: ["bs1:e1-3", "host-bs1:eth1"]  # host-bs1 Primary Corp (VLAN 21)
+    - endpoints: ["bs:e1-4", "host-bs1:eth2"]   # host-bs1 Backup Corp  (VLAN 20)
+    - endpoints: ["bs1:e1-5", "host-bs1:eth3"]  # host-bs1 Overlap      (VLAN 101)

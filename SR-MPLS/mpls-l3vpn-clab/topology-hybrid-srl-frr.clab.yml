@@ -1,0 +1,199 @@
+name: mpls-l3vpn-extranet
+prefix: clab
+
+# =============================================================================
+# 100% License-Free Hybrid Profile (Matching User Template):
+# - Tier 3 CEs (ce-a, ce-a1, ce-b, ce-b1) & Tier 4 Switches (as, as1, bs, bs1):
+#   Nokia SR Linux 7220 IXR-D2L (ghcr.io/nokia/srlinux:24.10.1 - License-Free)
+# - Tier 1 Core (core1, core2) & Tier 2 PEs (pe-a, pe-a1, pe-b, pe-b1):
+#   FRRouting 10.0.1 with Linux Kernel SR-MPLS Dataplane
+# =============================================================================
+
+mgmt:
+  network: clab-mpls-mgmt
+  ipv4-subnet: 172.20.20.0/24
+
+topology:
+  kinds:
+    nokia_srlinux:
+      image: ghcr.io/nokia/srlinux:24.10.1
+      type: ixr-d2l
+    linux:
+      image: quay.io/frrouting/frr:10.0.1
+
+  nodes:
+    core1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.11
+      binds:
+        - configs/daemons-core:/etc/frr/daemons
+        - configs/core1/frr.conf:/etc/frr/frr.conf
+        - scripts/nodes/core1-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+    core2:
+      kind: linux
+      mgmt-ipv4: 172.20.20.12
+      binds:
+        - configs/daemons-core:/etc/frr/daemons
+        - configs/core2/frr.conf:/etc/frr/frr.conf
+        - scripts/nodes/core2-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+
+    pe-a:
+      kind: linux
+      mgmt-ipv4: 172.20.20.21
+      binds:
+        - configs/daemons-pe:/etc/frr/daemons
+        - configs/pe-a/frr.conf:/etc/frr/frr.conf
+        - scripts/nodes/pe-a-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+    pe-a1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.22
+      binds:
+        - configs/daemons-pe:/etc/frr/daemons
+        - configs/pe-a1/frr.conf:/etc/frr/frr.conf
+        - scripts/nodes/pe-a1-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+    pe-b:
+      kind: linux
+      mgmt-ipv4: 172.20.20.23
+      binds:
+        - configs/daemons-pe:/etc/frr/daemons
+        - configs/pe-b/frr.conf:/etc/frr/frr.conf
+        - scripts/nodes/pe-b-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+    pe-b1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.24
+      binds:
+        - configs/daemons-pe:/etc/frr/daemons
+        - configs/pe-b1/frr.conf:/etc/frr/frr.conf
+        - scripts/nodes/pe-b1-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+
+    ce-a:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.31
+      startup-config: configs/srl/ce-a.cfg
+    ce-a1:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.32
+      startup-config: configs/srl/ce-a1.cfg
+    ce-b:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.33
+      startup-config: configs/srl/ce-b.cfg
+    ce-b1:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.34
+      startup-config: configs/srl/ce-b1.cfg
+
+    as:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.41
+      startup-config: configs/srl/as.cfg
+    as1:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.42
+      startup-config: configs/srl/as1.cfg
+    bs:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.43
+      startup-config: configs/srl/bs.cfg
+    bs1:
+      kind: nokia_srlinux
+      mgmt-ipv4: 172.20.20.44
+      startup-config: configs/srl/bs1.cfg
+
+    host-as:
+      kind: linux
+      mgmt-ipv4: 172.20.20.51
+      binds:
+        - scripts/nodes/host-as-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+    host-as1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.52
+      binds:
+        - scripts/nodes/host-as1-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+    host-bs:
+      kind: linux
+      mgmt-ipv4: 172.20.20.53
+      binds:
+        - scripts/nodes/host-bs-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+    host-bs1:
+      kind: linux
+      mgmt-ipv4: 172.20.20.54
+      binds:
+        - scripts/nodes/host-bs1-setup.sh:/setup.sh:ro
+      exec:
+        - sh /setup.sh
+
+  links:
+    - endpoints: ["core1:eth1", "core2:eth1"]
+    - endpoints: ["core1:eth2", "pe-a:eth1"]
+    - endpoints: ["core1:eth3", "pe-a1:eth1"]
+    - endpoints: ["core1:eth4", "pe-b:eth1"]
+    - endpoints: ["core1:eth5", "pe-b1:eth1"]
+    - endpoints: ["core2:eth2", "pe-a:eth2"]
+    - endpoints: ["core2:eth3", "pe-a1:eth2"]
+    - endpoints: ["core2:eth4", "pe-b:eth2"]
+    - endpoints: ["core2:eth5", "pe-b1:eth2"]
+
+    - endpoints: ["pe-a:eth3", "ce-a:e1-1"]
+    - endpoints: ["pe-a:eth4", "ce-a1:e1-1"]
+    - endpoints: ["pe-a:eth5", "ce-b:e1-1"]
+    - endpoints: ["pe-a:eth6", "ce-b1:e1-1"]
+
+    - endpoints: ["pe-a1:eth3", "ce-a:e1-2"]
+    - endpoints: ["pe-a1:eth4", "ce-a1:e1-2"]
+    - endpoints: ["pe-a1:eth5", "ce-b:e1-2"]
+    - endpoints: ["pe-a1:eth6", "ce-b1:e1-2"]
+
+    - endpoints: ["pe-b:eth3", "ce-a:e1-3"]
+    - endpoints: ["pe-b:eth4", "ce-a1:e1-3"]
+    - endpoints: ["pe-b:eth5", "ce-b:e1-3"]
+    - endpoints: ["pe-b:eth6", "ce-b1:e1-3"]
+
+    - endpoints: ["pe-b1:eth3", "ce-a:e1-4"]
+    - endpoints: ["pe-b1:eth4", "ce-a1:e1-4"]
+    - endpoints: ["pe-b1:eth5", "ce-b:e1-4"]
+    - endpoints: ["pe-b1:eth6", "ce-b1:e1-4"]
+
+    - endpoints: ["ce-a:e1-5", "as:e1-1"]
+    - endpoints: ["ce-a:e1-6", "as1:e1-1"]
+    - endpoints: ["ce-a1:e1-5", "as:e1-2"]
+    - endpoints: ["ce-a1:e1-6", "as1:e1-2"]
+
+    - endpoints: ["ce-b:e1-5", "bs:e1-1"]
+    - endpoints: ["ce-b:e1-6", "bs1:e1-1"]
+    - endpoints: ["ce-b1:e1-5", "bs:e1-2"]
+    - endpoints: ["ce-b1:e1-6", "bs1:e1-2"]
+
+    - endpoints: ["as:e1-3", "host-as:eth1"]
+    - endpoints: ["as1:e1-4", "host-as:eth2"]
+    - endpoints: ["as:e1-5", "host-as:eth3"]
+
+    - endpoints: ["as1:e1-3", "host-as1:eth1"]
+    - endpoints: ["as:e1-4", "host-as1:eth2"]
+    - endpoints: ["as1:e1-5", "host-as1:eth3"]
+
+    - endpoints: ["bs:e1-3", "host-bs:eth1"]
+    - endpoints: ["bs1:e1-4", "host-bs:eth2"]
+    - endpoints: ["bs:e1-5", "host-bs:eth3"]
+
+    - endpoints: ["bs1:e1-3", "host-bs1:eth1"]
+    - endpoints: ["bs:e1-4", "host-bs1:eth2"]
+    - endpoints: ["bs1:e1-5", "host-bs1:eth3"]
